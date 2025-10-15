@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 
-config({ path: ".env" });
+config({ path: ".env", debug: true });
 
 const isEmpty = (value: string) => {
   return (

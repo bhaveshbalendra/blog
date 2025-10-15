@@ -1,20 +1,29 @@
 import { db } from "@/db/drizzle";
-import { categories } from "@/db/schema";
-import { publicProcedure, router } from "@/lib/trpc";
+import { categories, postCategories } from "@/db/schemas/drizzle";
+import { trpcErrorCode } from "@/lib/api/error/code";
+import { errorMessage } from "@/lib/api/error/message";
+import { ResponseHandler } from "@/lib/api/response/response";
+import { publicProcedure, router } from "@/lib/trpc/trpc";
 import { generateSlug } from "@/lib/utils";
-import { categoriesValidator } from "@/lib/validator";
+import { categoriesSchemas } from "@/lib/zod/schemas/categories";
+import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 
 export const categoriesRouter = router({
   getAll: publicProcedure.query(async () => {
-    return await db
+    const categoriesData = await db
       .select()
       .from(categories)
       .orderBy(desc(categories.createdAt));
+
+    return ResponseHandler.retrieved(
+      categoriesData,
+      errorMessage.categories_retrieved_successfully
+    );
   }),
 
   getBySlug: publicProcedure
-    .input(categoriesValidator.getBySlug)
+    .input(categoriesSchemas.getBySlug)
     .query(async ({ input }) => {
       const category = await db
         .select()
@@ -23,17 +32,35 @@ export const categoriesRouter = router({
         .limit(1);
 
       if (!category[0]) {
-        throw new Error("Category not found");
+        throw new TRPCError({
+          code: trpcErrorCode.not_found as TRPCError["code"],
+          message: errorMessage.category_not_found,
+        });
       }
 
-      return category[0];
+      return ResponseHandler.retrieved(
+        category[0],
+        errorMessage.category_retrieved_successfully
+      );
     }),
 
   create: publicProcedure
-    .input(categoriesValidator.create)
-
+    .input(categoriesSchemas.create)
     .mutation(async ({ input }) => {
       const slug = generateSlug(input.name);
+
+      const existingCategory = await db
+        .select({ id: categories.id })
+        .from(categories)
+        .where(eq(categories.slug, slug))
+        .limit(1);
+
+      if (existingCategory.length > 0) {
+        throw new TRPCError({
+          code: trpcErrorCode.conflict as TRPCError["code"],
+          message: errorMessage.category_already_exists,
+        });
+      }
 
       const [newCategory] = await db
         .insert(categories)
@@ -44,11 +71,14 @@ export const categoriesRouter = router({
         })
         .returning();
 
-      return newCategory;
+      return ResponseHandler.created(
+        newCategory,
+        errorMessage.category_created_successfully
+      );
     }),
 
   update: publicProcedure
-    .input(categoriesValidator.update)
+    .input(categoriesSchemas.update)
     .mutation(async ({ input }) => {
       const updateData: Record<string, unknown> = {};
 
@@ -66,13 +96,35 @@ export const categoriesRouter = router({
         .where(eq(categories.id, input.id))
         .returning();
 
-      return updatedCategory;
+      return ResponseHandler.updated(
+        updatedCategory,
+        errorMessage.category_updated_successfully
+      );
     }),
 
   delete: publicProcedure
-    .input(categoriesValidator.delete)
+    .input(categoriesSchemas.delete)
     .mutation(async ({ input }) => {
+      const existingCategory = await db
+        .select({ id: categories.id })
+        .from(categories)
+        .where(eq(categories.id, input.id))
+        .limit(1);
+
+      if (existingCategory.length === 0) {
+        throw new TRPCError({
+          code: trpcErrorCode.not_found as TRPCError["code"],
+          message: errorMessage.category_not_found,
+        });
+      }
+
+      await db
+        .delete(postCategories)
+        .where(eq(postCategories.categoryId, input.id));
+
       await db.delete(categories).where(eq(categories.id, input.id));
-      return { success: true };
+      return ResponseHandler.deleted(
+        errorMessage.category_deleted_successfully
+      );
     }),
 });

@@ -1,14 +1,19 @@
 import { db } from "@/db/drizzle";
-import { categories, postCategories, posts } from "@/db/schema";
-import { publicProcedure, router } from "@/lib/trpc";
+import { categories, postCategories, posts } from "@/db/schemas/drizzle";
+import { trpcErrorCode } from "@/lib/api/error/code";
+import { errorMessage } from "@/lib/api/error/message";
+import { ResponseHandler } from "@/lib/api/response/response";
+import { publicProcedure, router } from "@/lib/trpc/trpc";
 import { generateSlug } from "@/lib/utils";
-import { postsValidator } from "@/lib/validator";
+import { postsSchemas } from "@/lib/zod/schemas/post";
+
+import { TRPCError } from "@trpc/server";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 
 export const postsRouter = router({
   getAll: publicProcedure
-    .input(postsValidator.getAll)
-    .query(async ({ input }) => {
+    .input(postsSchemas.getAll.optional())
+    .query(async ({ input = {} }) => {
       const whereConditions = [];
 
       if (input.published !== undefined) {
@@ -58,40 +63,44 @@ export const postsRouter = router({
             updatedAt: posts.updatedAt,
           })
           .from(posts)
-          .where(
-            whereConditions.length > 0 ? and(...whereConditions) : undefined
-          )
+          // .where(
+          //   whereConditions.length > 0 ? and(...whereConditions) : undefined
+          // )
           .orderBy(desc(posts.createdAt));
       }
 
       // Get categories for each post
-      const postsWithCategories = await Promise.all(
-        result.map(async (post) => {
-          const postCats = await db
-            .select({
-              id: categories.id,
-              name: categories.name,
-              slug: categories.slug,
-            })
-            .from(categories)
-            .innerJoin(
-              postCategories,
-              eq(categories.id, postCategories.categoryId)
-            )
-            .where(eq(postCategories.postId, post.id));
+      // const postsWithCategories = await Promise.all(
+      //   result.map(async (post) => {
+      //     const postCats = await db
+      //       .select({
+      //         id: categories.id,
+      //         name: categories.name,
+      //         slug: categories.slug,
+      //       })
+      //       .from(categories)
+      //       .innerJoin(
+      //         postCategories,
+      //         eq(categories.id, postCategories.categoryId)
+      //       )
+      //       .where(eq(postCategories.postId, post.id));
 
-          return {
-            ...post,
-            categories: postCats,
-          };
-        })
+      //     return {
+      //       ...post,
+      //       categories: postCats,
+      //     };
+      //   })
+      // );
+
+      // return postsWithCategories;
+      return ResponseHandler.retrieved(
+        result,
+        errorMessage.posts_retrieved_successfully
       );
-
-      return postsWithCategories;
     }),
 
   getBySlug: publicProcedure
-    .input(postsValidator.getBySlug)
+    .input(postsSchemas.getBySlug)
     .query(async ({ input }) => {
       const post = await db
         .select()
@@ -100,7 +109,10 @@ export const postsRouter = router({
         .limit(1);
 
       if (!post[0]) {
-        throw new Error("Post not found");
+        throw new TRPCError({
+          code: trpcErrorCode.not_found as TRPCError["code"],
+          message: errorMessage.post_not_found,
+        });
       }
 
       const postCats = await db
@@ -113,42 +125,56 @@ export const postsRouter = router({
         .innerJoin(postCategories, eq(categories.id, postCategories.categoryId))
         .where(eq(postCategories.postId, post[0].id));
 
-      return {
-        ...post[0],
-        categories: postCats,
-      };
+      return ResponseHandler.retrieved(
+        {
+          ...post[0],
+          categories: postCats,
+        },
+        errorMessage.post_retrieved_successfully
+      );
     }),
 
   create: publicProcedure
-    .input(postsValidator.create)
+    .input(postsSchemas.create)
     .mutation(async ({ input }) => {
-      const slug = generateSlug(input.title);
+      // Simple validation
+      const data = postsSchemas.create.parse(input);
 
+      // Check if slug exists
+      const slug = generateSlug(data.title);
+
+      const existingPost = await db
+        .select({ id: posts.id })
+        .from(posts)
+        .where(eq(posts.slug, slug))
+        .limit(1);
+
+      if (existingPost.length > 0) {
+        throw new TRPCError({
+          code: trpcErrorCode.conflict as TRPCError["code"],
+          message: errorMessage.post_already_exists,
+        });
+      }
+
+      // Create post
       const [newPost] = await db
         .insert(posts)
         .values({
-          title: input.title,
-          content: input.content,
+          title: data.title,
+          content: data.content,
           slug,
-          published: input.published,
+          published: false,
         })
         .returning();
 
-      // Add categories if provided
-      if (input.categoryIds.length > 0) {
-        await db.insert(postCategories).values(
-          input.categoryIds.map((categoryId) => ({
-            postId: newPost.id,
-            categoryId,
-          }))
-        );
-      }
-
-      return newPost;
+      return ResponseHandler.created(
+        newPost,
+        errorMessage.post_created_successfully
+      );
     }),
 
   update: publicProcedure
-    .input(postsValidator.update)
+    .input(postsSchemas.update)
     .mutation(async ({ input }) => {
       const updateData: Record<string, unknown> = {};
 
@@ -184,13 +210,37 @@ export const postsRouter = router({
         }
       }
 
-      return updatedPost;
+      return ResponseHandler.updated(
+        updatedPost,
+        errorMessage.post_updated_successfully
+      );
     }),
 
   delete: publicProcedure
-    .input(postsValidator.delete)
+    .input(postsSchemas.delete)
     .mutation(async ({ input }) => {
+      // First, check if the post exists
+      const existingPost = await db
+        .select({ id: posts.id })
+        .from(posts)
+        .where(eq(posts.id, input.id))
+        .limit(1);
+
+      if (existingPost.length === 0) {
+        throw new TRPCError({
+          code: trpcErrorCode.not_found as TRPCError["code"],
+          message: errorMessage.post_not_found,
+        });
+      }
+
+      // Delete related records first (postCategories)
+      await db
+        .delete(postCategories)
+        .where(eq(postCategories.postId, input.id));
+
+      // Then delete the post
       await db.delete(posts).where(eq(posts.id, input.id));
-      return { success: true };
+
+      return ResponseHandler.deleted(errorMessage.post_deleted_successfully);
     }),
 });

@@ -1,4 +1,4 @@
-import { router } from "@/lib/trpc";
+import { router } from "@/lib/trpc/trpc";
 import { categoriesRouter } from "./routers/categories";
 import { postsRouter } from "./routers/posts";
 

@@ -1,4 +1,4 @@
-import { getEnv } from "@/lib/getEnv";
+import { getEnv } from "@/lib/env/getEnv";
 
 export const env = {
   DATABASE_URL: getEnv("DATABASE_URL", ""),

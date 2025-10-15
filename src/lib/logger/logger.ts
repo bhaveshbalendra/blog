@@ -1,5 +1,5 @@
 // Logger utility that respects environment
-import { env } from "../config/envConfig";
+import { env } from "@/config/envConfig";
 
 export const logger = {
   log: (...args: unknown[]) => {

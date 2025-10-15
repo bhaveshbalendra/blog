@@ -1,33 +1,13 @@
-import { z } from "zod";
-// Categories Validator
-export const categoriesValidator = {
-  getBySlug: z.object({
-    slug: z.string(),
-  }),
-  create: z.object({
-    name: z.string(),
-    description: z.string(),
-  }),
-  update: z.object({
-    id: z.string(),
-    name: z.string(),
-    description: z.string(),
-  }),
-  delete: z.object({
-    id: z.string(),
-  }),
-};
+import z from "@/lib/zod";
 
 // Posts Validator
-export const postsValidator = {
+export const postsSchemas = {
   getBySlug: z.object({
     slug: z.string(),
   }),
   create: z.object({
     title: z.string(),
     content: z.string(),
-    published: z.boolean(),
-    categoryIds: z.array(z.string()),
   }),
   update: z.object({
     id: z.string(),
@@ -40,9 +20,9 @@ export const postsValidator = {
     id: z.string(),
   }),
   getAll: z.object({
-    published: z.boolean(),
-    categoryId: z.string(),
-    search: z.string(),
+    published: z.boolean().optional(),
+    categoryId: z.string().optional(),
+    search: z.string().optional(),
   }),
   getById: z.object({
     id: z.string(),
@@ -75,3 +55,5 @@ export const postsValidator = {
     published: z.boolean(),
   }),
 };
+
+export type PostsSchemasType = z.infer<typeof postsSchemas>;

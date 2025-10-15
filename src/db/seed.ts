@@ -1,7 +1,7 @@
 import { env } from "@/config/envConfig";
-import { logger } from "@/lib/logger";
+import { logger } from "@/lib/logger/logger";
 import { db } from "./drizzle";
-import { categories, postCategories, posts } from "./schema";
+import { categories, postCategories, posts } from "./schemas/drizzle";
 
 if (env.NEXT_ENV === "development") {
   async function seed() {
