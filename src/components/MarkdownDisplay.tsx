@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -104,13 +105,21 @@ const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
             </td>
           ),
           hr: () => <hr className="border-gray-300 my-6" />,
-          img: ({ src, alt }) => (
-            <img
-              src={src}
-              alt={alt}
-              className="max-w-full h-auto rounded-lg shadow-sm mb-4"
-            />
-          ),
+          img: ({ src, alt }) => {
+            // Only render if src is a string (not a Blob)
+            if (typeof src !== "string") {
+              return <div className="text-gray-500 italic">Invalid image</div>;
+            }
+            return (
+              <Image
+                src={src}
+                alt={alt || ""}
+                width={800}
+                height={400}
+                className="max-w-full h-auto rounded-lg shadow-sm mb-4"
+              />
+            );
+          },
         }}
       >
         {content}

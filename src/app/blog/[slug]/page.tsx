@@ -95,7 +95,7 @@ const PostPage: React.FC = () => {
               Post not found
             </h3>
             <p className="mt-1 text-sm text-gray-500">
-              The post you're looking for doesn't exist.
+              The post you&apos;re looking for doesn&apos;t exist.
             </p>
             <div className="mt-6">
               <Link href="/blog">

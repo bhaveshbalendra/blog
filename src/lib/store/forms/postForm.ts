@@ -20,7 +20,10 @@ interface PostFormStore {
   errors: Record<string, string>;
 
   // Actions
-  updateField: (field: keyof PostFormData, value: any) => void;
+  updateField: (
+    field: keyof PostFormData,
+    value: string | boolean | string[]
+  ) => void;
   updateFormData: (data: Partial<PostFormData>) => void;
   setErrors: (errors: Record<string, string>) => void;
   clearErrors: () => void;

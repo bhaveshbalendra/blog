@@ -4,12 +4,11 @@ import MarkdownEditor from "@/components/MarkdownEditor";
 import Navigation from "@/components/Navigation";
 import { usePost } from "@/hooks/usePosts";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import React from "react";
 
 const EditPostPage: React.FC = () => {
   const params = useParams();
-  const router = useRouter();
   const postId = params.id as string;
 
   const { data: post, isLoading, isError, error } = usePost(postId);
