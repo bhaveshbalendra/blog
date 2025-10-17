@@ -1,8 +1,8 @@
-import { router } from "@/lib/trpc/trpc";
+import { createTRPCRouter } from "./init";
 import { categoriesRouter } from "./routers/categories";
 import { postsRouter } from "./routers/posts";
 
-export const appRouter = router({
+export const appRouter = createTRPCRouter({
   posts: postsRouter,
   categories: categoriesRouter,
 });

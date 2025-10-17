@@ -3,13 +3,13 @@ import { categories, postCategories } from "@/db/schemas/drizzle";
 import { trpcErrorCode } from "@/lib/api/error/code";
 import { errorMessage } from "@/lib/api/error/message";
 import { ResponseHandler } from "@/lib/api/response/response";
-import { publicProcedure, router } from "@/lib/trpc/trpc";
+import { createTRPCRouter, publicProcedure } from "@/lib/trpc/server/init";
 import { generateSlug } from "@/lib/utils";
 import { categoriesSchemas } from "@/lib/zod/schemas/categories";
 import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 
-export const categoriesRouter = router({
+export const categoriesRouter = createTRPCRouter({
   getAll: publicProcedure.query(async () => {
     const categoriesData = await db
       .select()

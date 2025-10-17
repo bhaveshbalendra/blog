@@ -3,14 +3,14 @@ import { categories, postCategories, posts } from "@/db/schemas/drizzle";
 import { trpcErrorCode } from "@/lib/api/error/code";
 import { errorMessage } from "@/lib/api/error/message";
 import { ResponseHandler } from "@/lib/api/response/response";
-import { publicProcedure, router } from "@/lib/trpc/trpc";
+import { createTRPCRouter, publicProcedure } from "@/lib/trpc/server/init";
 import { generateSlug } from "@/lib/utils";
 import { postsSchemas } from "@/lib/zod/schemas/post";
 
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
 
-export const postsRouter = router({
+export const postsRouter = createTRPCRouter({
   getAll: publicProcedure
     .input(postsSchemas.getAll.optional())
     .query(async ({ input = {} }) => {
@@ -29,28 +29,42 @@ export const postsRouter = router({
         );
       }
 
-      let result;
+      let result: Array<{
+        id: string;
+        title: string;
+        content: string;
+        slug: string;
+        published: boolean | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }> = [];
 
-      if (input.categoryId) {
-        result = await db
-          .select({
-            id: posts.id,
-            title: posts.title,
-            content: posts.content,
-            slug: posts.slug,
-            published: posts.published,
-            createdAt: posts.createdAt,
-            updatedAt: posts.updatedAt,
-          })
-          .from(posts)
-          .innerJoin(postCategories, eq(posts.id, postCategories.postId))
-          .where(
-            and(
-              ...whereConditions,
-              eq(postCategories.categoryId, input.categoryId)
-            )
-          )
-          .orderBy(desc(posts.createdAt));
+      if (input.categoryIds && input.categoryIds.length > 0) {
+        // Use a subquery to find posts that have any of the selected categories
+        const postsWithCategories = await db
+          .select({ postId: postCategories.postId })
+          .from(postCategories)
+          .where(inArray(postCategories.categoryId, input.categoryIds));
+
+        const postIds = postsWithCategories.map((p) => p.postId);
+        if (postIds.length === 0) {
+          // No posts found with the selected categories
+          result = [];
+        } else {
+          result = await db
+            .select({
+              id: posts.id,
+              title: posts.title,
+              content: posts.content,
+              slug: posts.slug,
+              published: posts.published,
+              createdAt: posts.createdAt,
+              updatedAt: posts.updatedAt,
+            })
+            .from(posts)
+            .where(and(...whereConditions, inArray(posts.id, postIds)))
+            .orderBy(desc(posts.createdAt));
+        }
       } else {
         result = await db
           .select({
@@ -63,9 +77,9 @@ export const postsRouter = router({
             updatedAt: posts.updatedAt,
           })
           .from(posts)
-          // .where(
-          //   whereConditions.length > 0 ? and(...whereConditions) : undefined
-          // )
+          .where(
+            whereConditions.length > 0 ? and(...whereConditions) : undefined
+          )
           .orderBy(desc(posts.createdAt));
       }
 
@@ -106,6 +120,41 @@ export const postsRouter = router({
         .select()
         .from(posts)
         .where(eq(posts.slug, input.slug))
+        .limit(1);
+
+      if (!post[0]) {
+        throw new TRPCError({
+          code: trpcErrorCode.not_found as TRPCError["code"],
+          message: errorMessage.post_not_found,
+        });
+      }
+
+      const postCats = await db
+        .select({
+          id: categories.id,
+          name: categories.name,
+          slug: categories.slug,
+        })
+        .from(categories)
+        .innerJoin(postCategories, eq(categories.id, postCategories.categoryId))
+        .where(eq(postCategories.postId, post[0].id));
+
+      return ResponseHandler.retrieved(
+        {
+          ...post[0],
+          categories: postCats,
+        },
+        errorMessage.post_retrieved_successfully
+      );
+    }),
+
+  getById: publicProcedure
+    .input(postsSchemas.getById)
+    .query(async ({ input }) => {
+      const post = await db
+        .select()
+        .from(posts)
+        .where(eq(posts.id, input.id))
         .limit(1);
 
       if (!post[0]) {

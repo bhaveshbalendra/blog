@@ -1,10 +1,6 @@
-import { Button } from "@/components/ui/button";
+import LandingPage from "@/components/LandingPage";
 import React from "react";
 
 export default function Home() {
-  return (
-    <div>
-      <Button>Click me</Button>
-    </div>
-  );
+  return <LandingPage />;
 }

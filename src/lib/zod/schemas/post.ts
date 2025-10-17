@@ -21,7 +21,7 @@ export const postsSchemas = {
   }),
   getAll: z.object({
     published: z.boolean().optional(),
-    categoryId: z.string().optional(),
+    categoryIds: z.array(z.string()).optional(), // Changed from single categoryId to array
     search: z.string().optional(),
   }),
   getById: z.object({
