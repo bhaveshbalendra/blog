@@ -114,17 +114,28 @@ export const useCategoryFormStore = create<CategoryFormStore>((set, get) => ({
 
       // Clear error for this field
       const { errors } = get();
-      if (errors[field]) {
-        set({ errors: { ...errors, [field]: "" } });
+      const newErrors = { ...errors };
+      delete newErrors[field];
+
+      // Check if the entire form is valid after this field validation
+      let isFormValid = true;
+      try {
+        categoryFormSchema.parse(formData);
+      } catch {
+        isFormValid = false;
       }
 
+      set({ errors: newErrors, isValid: isFormValid });
       return true;
     } catch (error) {
       if (error instanceof z.ZodError) {
         const fieldError = error.issues.find((err) => err.path[0] === field);
         if (fieldError) {
           const { errors } = get();
-          set({ errors: { ...errors, [field]: fieldError.message } });
+          set({
+            errors: { ...errors, [field]: fieldError.message },
+            isValid: false,
+          });
         }
       }
       return false;

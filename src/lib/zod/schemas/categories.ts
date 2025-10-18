@@ -21,12 +21,12 @@ export const categoriesSchemas = {
   }),
   create: z.object({
     name: z.string(),
-    description: z.string(),
+    description: z.string().optional(),
   }),
   update: z.object({
     id: z.string(),
-    name: z.string(),
-    description: z.string(),
+    name: z.string().optional(),
+    description: z.string().optional(),
   }),
   delete: z.object({
     id: z.string(),

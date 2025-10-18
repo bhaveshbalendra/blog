@@ -7,6 +7,7 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useCategories } from "@/hooks/useCategories";
 import { useCategoryMutation } from "@/hooks/useMutationWithInvalidation";
 import { useCategoryFormStore } from "@/lib/store/forms/categoryForm";
+import { useUIStore } from "@/lib/store/ui";
 import React, { useState } from "react";
 
 const CategoriesPage: React.FC = () => {
@@ -24,6 +25,13 @@ const CategoriesPage: React.FC = () => {
 
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const {
+    deleteCategoryModalOpen,
+    selectedCategoryId,
+    openDeleteCategoryModal,
+    closeDeleteCategoryModal,
+  } = useUIStore();
 
   const {
     formData,
@@ -80,13 +88,12 @@ const CategoriesPage: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this category?")) {
-      try {
-        await deleteCategoryMutation.mutateAsync({ id });
-      } catch (error) {
-        console.error("Failed to delete category:", error);
-      }
+  const handleDeleteCategory = async (categoryId: string) => {
+    try {
+      await deleteCategoryMutation.mutateAsync({ id: categoryId });
+      closeDeleteCategoryModal();
+    } catch (error) {
+      console.error("Failed to delete category:", error);
     }
   };
 
@@ -303,13 +310,11 @@ const CategoriesPage: React.FC = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleDelete(category.id)}
+                        onClick={() => openDeleteCategoryModal(category.id)}
                         className="text-red-600 hover:text-red-700"
                         disabled={deleteCategoryMutation.isPending}
                       >
-                        {deleteCategoryMutation.isPending
-                          ? "Deleting..."
-                          : "Delete"}
+                        Delete
                       </Button>
                     </div>
                   </div>
@@ -319,6 +324,56 @@ const CategoriesPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteCategoryModalOpen && selectedCategoryId && (
+        <div className="fixed inset-0 bg-transparent flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 text-white rounded-lg max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0">
+                <svg
+                  className="h-6 w-6 text-red-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-lg font-medium text-white">
+                  Delete Category
+                </h3>
+              </div>
+            </div>
+            <p className="text-sm text-gray-300 mb-6">
+              Are you sure you want to delete this category? This action cannot
+              be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="secondary"
+                onClick={closeDeleteCategoryModal}
+                disabled={deleteCategoryMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleDeleteCategory(selectedCategoryId)}
+                disabled={deleteCategoryMutation.isPending}
+              >
+                {deleteCategoryMutation.isPending ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -13,9 +13,11 @@ interface UIStore {
   createPostModalOpen: boolean;
   deleteConfirmModalOpen: boolean;
   editPostModalOpen: boolean;
+  deleteCategoryModalOpen: boolean;
 
   // Selected items
   selectedPostId: string | null;
+  selectedCategoryId: string | null;
 
   // Actions
   setTheme: (theme: "light" | "dark") => void;
@@ -31,9 +33,12 @@ interface UIStore {
   closeDeleteConfirmModal: () => void;
   openEditPostModal: (postId: string) => void;
   closeEditPostModal: () => void;
+  openDeleteCategoryModal: (categoryId: string) => void;
+  closeDeleteCategoryModal: () => void;
 
   // Selection actions
   setSelectedPostId: (id: string | null) => void;
+  setSelectedCategoryId: (id: string | null) => void;
   clearSelection: () => void;
 }
 
@@ -47,7 +52,9 @@ export const useUIStore = create<UIStore>()(
       createPostModalOpen: false,
       deleteConfirmModalOpen: false,
       editPostModalOpen: false,
+      deleteCategoryModalOpen: false,
       selectedPostId: null,
+      selectedCategoryId: null,
 
       // Theme actions
       setTheme: (theme) => set({ theme }),
@@ -88,9 +95,22 @@ export const useUIStore = create<UIStore>()(
           selectedPostId: null,
         }),
 
+      openDeleteCategoryModal: (categoryId) =>
+        set({
+          deleteCategoryModalOpen: true,
+          selectedCategoryId: categoryId,
+        }),
+      closeDeleteCategoryModal: () =>
+        set({
+          deleteCategoryModalOpen: false,
+          selectedCategoryId: null,
+        }),
+
       // Selection actions
       setSelectedPostId: (id) => set({ selectedPostId: id }),
-      clearSelection: () => set({ selectedPostId: null }),
+      setSelectedCategoryId: (id) => set({ selectedCategoryId: id }),
+      clearSelection: () =>
+        set({ selectedPostId: null, selectedCategoryId: null }),
     }),
     {
       name: "ui-store",

@@ -274,12 +274,12 @@ const DashboardPage: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmModalOpen && selectedPostId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <div className="fixed inset-0 bg-transparent flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 text-white rounded-lg max-w-md w-full p-6 shadow-2xl">
             <div className="flex items-center mb-4">
               <div className="flex-shrink-0">
                 <svg
-                  className="h-6 w-6 text-red-600"
+                  className="h-6 w-6 text-red-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -293,18 +293,16 @@ const DashboardPage: React.FC = () => {
                 </svg>
               </div>
               <div className="ml-3">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Delete Post
-                </h3>
+                <h3 className="text-lg font-medium text-white">Delete Post</h3>
               </div>
             </div>
-            <p className="text-sm text-gray-500 mb-6">
+            <p className="text-sm text-gray-300 mb-6">
               Are you sure you want to delete this post? This action cannot be
               undone.
             </p>
             <div className="flex justify-end space-x-3">
               <Button
-                variant="outline"
+                variant="secondary"
                 onClick={closeDeleteConfirmModal}
                 disabled={deletePostMutation.isPending}
               >
