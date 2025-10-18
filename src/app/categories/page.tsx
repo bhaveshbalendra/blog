@@ -2,12 +2,11 @@
 
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
-import {
-  useCategories,
-  useCreateCategory,
-  useDeleteCategory,
-  useUpdateCategory,
-} from "@/hooks/useCategories";
+import ErrorDisplay from "@/components/ui/ErrorDisplay";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import { useCategories } from "@/hooks/useCategories";
+import { useCategoryMutation } from "@/hooks/useMutationWithInvalidation";
+import { useCategoryFormStore } from "@/lib/store/forms/categoryForm";
 import React, { useState } from "react";
 
 const CategoriesPage: React.FC = () => {
@@ -18,49 +17,44 @@ const CategoriesPage: React.FC = () => {
     error,
     refetch,
   } = useCategories();
-  const createCategoryMutation = useCreateCategory();
-  const updateCategoryMutation = useUpdateCategory();
-  const deleteCategoryMutation = useDeleteCategory();
+
+  const createCategoryMutation = useCategoryMutation("create");
+  const updateCategoryMutation = useCategoryMutation("update");
+  const deleteCategoryMutation = useCategoryMutation("delete");
 
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = "Name is required";
-    }
-
-    if (formData.name.length > 50) {
-      newErrors.name = "Name must be less than 50 characters";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  const {
+    formData,
+    errors,
+    isValid,
+    isSubmitting,
+    updateField,
+    updateFormData,
+    validateForm,
+    resetForm,
+    setSubmitting,
+  } = useCategoryFormStore();
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) return;
 
+    setSubmitting(true);
     try {
       await createCategoryMutation.mutateAsync({
         name: formData.name,
         description: formData.description,
       });
 
-      setFormData({ name: "", description: "" });
+      resetForm();
       setIsCreating(false);
-      setErrors({});
     } catch (error) {
       console.error("Failed to create category:", error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -69,6 +63,7 @@ const CategoriesPage: React.FC = () => {
 
     if (!validateForm() || !editingId) return;
 
+    setSubmitting(true);
     try {
       await updateCategoryMutation.mutateAsync({
         id: editingId,
@@ -76,11 +71,12 @@ const CategoriesPage: React.FC = () => {
         description: formData.description,
       });
 
-      setFormData({ name: "", description: "" });
+      resetForm();
       setEditingId(null);
-      setErrors({});
     } catch (error) {
       console.error("Failed to update category:", error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -100,7 +96,7 @@ const CategoriesPage: React.FC = () => {
     description?: string | null;
   }) => {
     setEditingId(category.id);
-    setFormData({
+    updateFormData({
       name: category.name,
       description: category.description || "",
     });
@@ -108,24 +104,19 @@ const CategoriesPage: React.FC = () => {
 
   const cancelEdit = () => {
     setEditingId(null);
-    setFormData({ name: "", description: "" });
-    setErrors({});
+    resetForm();
   };
 
   const cancelCreate = () => {
     setIsCreating(false);
-    setFormData({ name: "", description: "" });
-    setErrors({});
+    resetForm();
   };
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navigation />
-        <div className="flex items-center justify-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          <span className="ml-2">Loading categories...</span>
-        </div>
+        <LoadingSpinner message="Loading categories..." fullScreen />
       </div>
     );
   }
@@ -135,42 +126,12 @@ const CategoriesPage: React.FC = () => {
       <div className="min-h-screen bg-gray-50">
         <Navigation />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-red-400"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">
-                  Error loading categories
-                </h3>
-                <div className="mt-2 text-sm text-red-700">
-                  <p>
-                    {error?.message ||
-                      "An error occurred while loading the categories"}
-                  </p>
-                </div>
-                <div className="mt-4">
-                  <Button
-                    onClick={() => refetch()}
-                    className="bg-red-100 text-red-800 hover:bg-red-200"
-                  >
-                    Try Again
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <ErrorDisplay
+            title="Error loading categories"
+            error={error}
+            onRetry={() => refetch()}
+            retryText="Try Again"
+          />
         </div>
       </div>
     );
@@ -214,9 +175,7 @@ const CategoriesPage: React.FC = () => {
                   type="text"
                   id="name"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                  onChange={(e) => updateField("name", e.target.value)}
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     errors.name ? "border-red-300" : "border-gray-300"
                   }`}
@@ -238,9 +197,7 @@ const CategoriesPage: React.FC = () => {
                 <textarea
                   id="description"
                   value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
+                  onChange={(e) => updateField("description", e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter category description"
                   rows={3}
@@ -262,9 +219,10 @@ const CategoriesPage: React.FC = () => {
                 <Button
                   type="submit"
                   disabled={
+                    isSubmitting ||
                     createCategoryMutation.isPending ||
                     updateCategoryMutation.isPending ||
-                    !formData.name.trim()
+                    !isValid
                   }
                 >
                   {createCategoryMutation.isPending ||
