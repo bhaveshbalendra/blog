@@ -70,7 +70,12 @@ export function useMutationWithInvalidation<TData, TVariables>(
         options.onSuccess(data, variables, context);
       }
     },
-  });
+  }) as {
+    mutateAsync: (variables: TVariables) => Promise<TData>;
+    isPending: boolean;
+    isError: boolean;
+    error: Error | null;
+  };
 }
 
 /**

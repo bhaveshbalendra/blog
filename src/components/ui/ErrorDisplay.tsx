@@ -6,7 +6,7 @@ import React from "react";
 interface ErrorDisplayProps {
   title?: string;
   message?: string;
-  error?: any;
+  error?: Error | { message?: string } | null;
   onRetry?: () => void;
   retryText?: string;
   className?: string;
