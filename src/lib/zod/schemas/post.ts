@@ -1,5 +1,26 @@
 import z from "@/lib/zod";
 
+// Form validation schema for post creation/editing
+export const postFormSchema = z.object({
+  title: z
+    .string()
+    .min(1, "Title is required")
+    .max(100, "Title must be less than 100 characters")
+    .trim()
+    .refine((val) => val.length > 0, "Title cannot be empty"),
+  content: z
+    .string()
+    .min(1, "Content is required")
+    .max(10000, "Content must be less than 10,000 characters")
+    .trim()
+    .refine((val) => val.length > 0, "Content cannot be empty"),
+  published: z.boolean(),
+  categoryIds: z
+    .array(z.string().uuid("Invalid category ID"))
+    .default([])
+    .optional(),
+});
+
 // Posts Validator
 export const postsSchemas = {
   getBySlug: z.object({

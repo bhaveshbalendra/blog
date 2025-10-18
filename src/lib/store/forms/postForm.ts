@@ -1,3 +1,5 @@
+import { postFormSchema } from "@/lib/zod/schemas/post";
+import { z } from "zod";
 import { create } from "zustand";
 
 export interface PostFormData {
@@ -6,6 +8,8 @@ export interface PostFormData {
   published: boolean;
   categoryIds: string[];
 }
+
+export type PostFormDataSchema = z.infer<typeof postFormSchema>;
 
 interface PostFormStore {
   // Form data
@@ -28,6 +32,7 @@ interface PostFormStore {
   setErrors: (errors: Record<string, string>) => void;
   clearErrors: () => void;
   validateForm: () => boolean;
+  validateField: (field: keyof PostFormData) => boolean;
   resetForm: () => void;
   setSubmitting: (submitting: boolean) => void;
   markAsDirty: () => void;
@@ -56,11 +61,8 @@ export const usePostFormStore = create<PostFormStore>((set, get) => ({
       isDirty: true,
     }));
 
-    // Clear error for this field
-    const { errors } = get();
-    if (errors[field]) {
-      set({ errors: { ...errors, [field]: "" } });
-    }
+    // Validate the field after updating
+    get().validateField(field);
   },
 
   updateFormData: (data) => {
@@ -76,26 +78,64 @@ export const usePostFormStore = create<PostFormStore>((set, get) => ({
 
   validateForm: () => {
     const { formData } = get();
-    const errors: Record<string, string> = {};
 
-    if (!formData.title.trim()) {
-      errors.title = "Title is required";
+    try {
+      // Validate using Zod schema
+      postFormSchema.parse(formData);
+
+      // If validation passes, clear errors
+      set({ errors: {}, isValid: true });
+      return true;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        // Convert Zod errors to our error format
+        const errors: Record<string, string> = {};
+
+        error.issues.forEach((err) => {
+          const field = err.path[0] as string;
+          if (field) {
+            errors[field] = err.message;
+          }
+        });
+
+        set({ errors, isValid: false });
+        return false;
+      }
+
+      // Handle unexpected errors
+      set({
+        errors: { general: "An unexpected validation error occurred" },
+        isValid: false,
+      });
+      return false;
     }
+  },
 
-    if (!formData.content.trim()) {
-      errors.content = "Content is required";
+  validateField: (field: keyof PostFormData) => {
+    const { formData } = get();
+
+    try {
+      // Create a partial schema for the specific field
+      const fieldSchema = postFormSchema.pick({ [field]: true });
+      fieldSchema.parse({ [field]: formData[field] });
+
+      // Clear error for this field
+      const { errors } = get();
+      if (errors[field]) {
+        set({ errors: { ...errors, [field]: "" } });
+      }
+
+      return true;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const fieldError = error.issues.find((err) => err.path[0] === field);
+        if (fieldError) {
+          const { errors } = get();
+          set({ errors: { ...errors, [field]: fieldError.message } });
+        }
+      }
+      return false;
     }
-
-    if (formData.title.length > 100) {
-      errors.title = "Title must be less than 100 characters";
-    }
-
-    if (formData.content.length > 10000) {
-      errors.content = "Content must be less than 10,000 characters";
-    }
-
-    set({ errors, isValid: Object.keys(errors).length === 0 });
-    return Object.keys(errors).length === 0;
   },
 
   resetForm: () =>
